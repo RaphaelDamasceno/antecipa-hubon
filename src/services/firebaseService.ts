@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, User } from 'firebase/auth';
-import { getFirestore, doc, setDoc, getDocs, collection, query, where, serverTimestamp, getDocFromServer, doc as firestoreDoc, updateDoc, addDoc, onSnapshot, orderBy, limit, deleteDoc } from 'firebase/firestore';
+import { getFirestore, doc, setDoc, getDocs, collection, query, where, serverTimestamp, getDocFromServer, doc as firestoreDoc, updateDoc, addDoc, onSnapshot, orderBy, limit, deleteDoc, writeBatch } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 import { Receivable } from './sheetsService';
 
@@ -64,45 +64,72 @@ export async function signInWithGoogle() {
   }
 }
 
-export async function savePromisedCommission(receivable: Receivable, userId: string, isCollateral: boolean = false, collateralFor: string | null = null) {
-  const path = 'promised_commissions';
-  const commissionId = `${receivable.id}-${receivable.previsaoMes}-${receivable.previsaoAno}`.replace(/[^\w-]/g, '_');
-  
+/**
+ * Helper para gerar o payload padrão de uma solicitação de comissão.
+ * Centraliza a lógica de mapeamento dos campos da planilha para o Firestore.
+ */
+const getCommissionPayload = (receivable: Receivable, userId: string, isCollateral: boolean, collateralFor: string | null) => {
   const payload: any = {
     pvId: String(receivable.id),
-    receivableId: commissionId,
-    amount: receivable.valorNumeric,
-    previsaoMes: receivable.previsaoMes,
-    previsaoAno: receivable.previsaoAno,
+    receivableId: `${receivable.id}-${receivable.previsaoMes}-${receivable.previsaoAno}`.replace(/[^\w-]/g, '_'),
+    amount: Number(receivable.valorNumeric),
+    previsaoMes: String(receivable.previsaoMes),
+    previsaoAno: String(receivable.previsaoAno),
     userId: userId,
     status: 'pending',
     stageName: isCollateral ? 'Título em Garantia' : 'Solicitação Encaminhada',
-    isCollateral,
+    isCollateral: Boolean(isCollateral),
     userRole: receivable.userRole || 'Corretor',
     requestedAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   };
 
   if (collateralFor) {
-    payload.collateralFor = collateralFor;
+    payload.collateralFor = String(collateralFor);
   }
 
+  return payload;
+};
+
+/**
+ * Salva uma solicitação de antecipação individual no Firestore.
+ */
+export async function savePromisedCommission(receivable: Receivable, userId: string, isCollateral: boolean = false, collateralFor: string | null = null) {
+  const path = 'promised_commissions';
+  const commissionId = `${receivable.id}-${receivable.previsaoMes}-${receivable.previsaoAno}`.replace(/[^\w-]/g, '_');
+  
   try {
+    const payload = getCommissionPayload(receivable, userId, isCollateral, collateralFor);
     await setDoc(firestoreDoc(db, path, commissionId), payload);
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
   }
 }
 
+/**
+ * Salva múltiplas solicitações (principal + colaterais) em uma única transação atômica (Batch).
+ */
 export async function saveAdvancementWithCollateral(primary: Receivable, collateralItems: Receivable[], userId: string) {
+  const path = 'promised_commissions';
   const primaryId = `${primary.id}-${primary.previsaoMes}-${primary.previsaoAno}`.replace(/[^\w-]/g, '_');
+  const batch = writeBatch(db);
   
-  // Salva o principal
-  await savePromisedCommission(primary, userId, false, null);
+  // Adiciona o principal no batch
+  const primaryRef = firestoreDoc(db, path, primaryId);
+  batch.set(primaryRef, getCommissionPayload(primary, userId, false, null));
   
-  // Salva os colaterais vinculados
-  const promises = collateralItems.map(c => savePromisedCommission(c, userId, true, primaryId));
-  await Promise.all(promises);
+  // Adiciona colaterais no batch
+  collateralItems.forEach(c => {
+    const cId = `${c.id}-${c.previsaoMes}-${c.previsaoAno}`.replace(/[^\w-]/g, '_');
+    const cRef = firestoreDoc(db, path, cId);
+    batch.set(cRef, getCommissionPayload(c, userId, true, primaryId));
+  });
+
+  try {
+    await batch.commit();
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
+  }
 }
 
 export async function fetchPromisedCommissions(userId: string) {
@@ -117,41 +144,89 @@ export async function fetchPromisedCommissions(userId: string) {
   }
 }
 
+/**
+ * Atualiza o status e informações de uma comissão no Firestore.
+ * Notifica o usuário se houver mudança de status relevante.
+ */
 export async function updateCommissionStatus(commissionId: string, status: 'pending' | 'approved' | 'rejected', stageName: string) {
   const path = 'promised_commissions';
   try {
     const docRef = firestoreDoc(db, path, commissionId);
     
-    // Buscar dados atuais para saber se o status mudou
+    // Buscar dados atuais para evitar notificações duplicadas e escritas desnecessárias
     const docSnap = await getDocFromServer(docRef);
     if (docSnap.exists()) {
       const currentData = docSnap.data();
       const oldStatus = currentData.status;
       const oldStage = currentData.stageName;
 
-      // Só atualiza e notifica se houve mudança real
+      // Só atualiza se algo mudou
       if (oldStatus !== status || oldStage !== stageName) {
         await updateDoc(docRef, { status, stageName, updatedAt: serverTimestamp() });
 
-        // Criar notificação para mudança relevante
-        let title = "Atualização de Solicitação";
-        let message = `Sua solicitação para PV ${currentData.pvId} agora está: ${stageName}`;
-        let type: 'info' | 'success' | 'error' | 'warning' = 'info';
+        // Gera notificação visual para o usuário
+        if (oldStatus !== status) {
+          let title = "Atualização de Solicitação";
+          let message = `Sua solicitação para PV ${currentData.pvId} agora está: ${stageName}`;
+          let type: 'info' | 'success' | 'error' | 'warning' = 'info';
 
-        if (status === 'approved') {
-          title = "Solicitação Aprovada";
-          type = 'success';
-        } else if (status === 'rejected') {
-          title = "Solicitação Negada";
-          type = 'error';
+          if (status === 'approved') {
+            title = "Antecipação Aprovada";
+            type = 'success';
+          } else if (status === 'rejected') {
+            title = "Solicitação Negada";
+            type = 'error';
+          }
+
+          await addNotification(currentData.userId, title, message, type);
         }
-
-        await addNotification(currentData.userId, title, message, type);
       }
-    } else {
-      // Caso o documento não exista (raro), apenas cria/seta
-      await setDoc(docRef, { status, stageName, updatedAt: serverTimestamp() }, { merge: true });
     }
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, path);
+  }
+}
+
+/**
+ * Remove múltiplas solicitações do Firestore em lote (Batch).
+ * Útil para limpeza de registros que não existem mais no CRM.
+ */
+export async function deletePromisedCommissionsBulk(commissionIds: string[]) {
+  if (commissionIds.length === 0) return;
+  const path = 'promised_commissions';
+  const batch = writeBatch(db);
+  
+  commissionIds.forEach(id => {
+    const docRef = firestoreDoc(db, path, id);
+    batch.delete(docRef);
+  });
+
+  try {
+    await batch.commit();
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path);
+  }
+}
+
+/**
+ * Atualiza múltiplos status do Firestore em lote (Batch).
+ */
+export async function updateCommissionsStatusBulk(updates: { id: string, status: 'pending' | 'approved' | 'rejected', stageName: string }[]) {
+  if (updates.length === 0) return;
+  const path = 'promised_commissions';
+  const batch = writeBatch(db);
+  
+  updates.forEach(u => {
+    const docRef = firestoreDoc(db, path, u.id);
+    batch.update(docRef, { 
+      status: u.status, 
+      stageName: u.stageName, 
+      updatedAt: serverTimestamp() 
+    });
+  });
+
+  try {
+    await batch.commit();
   } catch (error) {
     handleFirestoreError(error, OperationType.UPDATE, path);
   }
@@ -225,7 +300,7 @@ export async function deleteNotification(notificationId: string) {
   }
 }
 
-export async function saveSignature(commissionId: string, signature: { name: string; document: string; address: string; ip: string; userAgent: string }) {
+export async function saveSignature(commissionId: string, signature: { name: string; document: string; address: string; ip: string; userAgent: string; metadata?: any }) {
   const path = 'promised_commissions';
   try {
     const docRef = firestoreDoc(db, path, commissionId);

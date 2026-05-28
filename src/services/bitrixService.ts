@@ -21,7 +21,10 @@ export async function fetchExistingDeals(pvIds: string[]) {
       })
     });
     
-    if (!response.ok) return [];
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Bitrix API Error (${response.status}): ${errorText}`);
+    }
     const data = await response.json();
     return data.result || [];
   } catch (error) {
@@ -95,7 +98,9 @@ export async function updateBitrixDealWithFile(dealId: string, base64File: strin
         }
       })
     });
-    return await response.json();
+    const result = await response.json();
+    if (result.error) throw new Error(result.error_description || result.error);
+    return result;
   } catch (error) {
     console.error('Erro ao anexar arquivo no Bitrix:', error);
     throw error;
@@ -116,7 +121,9 @@ export async function rejectBitrixDeal(dealId: string) {
         }
       })
     });
-    return await response.json();
+    const result = await response.json();
+    if (result.error) throw new Error(result.error_description || result.error);
+    return result;
   } catch (error) {
     console.error('Erro ao recusar negócio no Bitrix:', error);
     throw error;

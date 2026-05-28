@@ -92,6 +92,10 @@ export async function fetchUsers(): Promise<UserData[]> {
   }
 }
 
+/**
+ * Busca os recebíveis (comissões) para um usuário específico.
+ * Filtra com base no nome do corretor, líder ou cargo de gestão.
+ */
 export async function fetchReceivables(user: UserData): Promise<Receivable[]> {
   try {
     const jsonData = await fetchFromSheet(TAB_CR);
@@ -99,13 +103,16 @@ export async function fetchReceivables(user: UserData): Promise<Receivable[]> {
     const rows = jsonData.table.rows;
     const searchName = normalizeName(user.nome);
 
-    // Identifica se o usuário é Diretor ou Superintendente
+    // Identifica se o usuário possui cargo de gestão
+    // Diretores e Superintendentes têm visão ampliada (por loja ou total)
     const isDiretor = user.cargo?.toLowerCase().includes('diretor');
     const isSuper = user.cargo?.toLowerCase().includes('superintendente') || !!user.superintendencia;
     const userLoja = normalizeName(user.loja || '');
 
     return rows
       .map((row: any, rowIndex: number) => {
+        // Mapeamento das colunas da planilha "CR 2025"
+        // Baseado na estrutura observada: 0:PV, 2:Empreendimento, 3:Unidade, 4:Loja, 6:Construtora, 7:Cliente, 9:Corretor, 10:LíderTrai, 11:Líder, 15:InfoParcela, 16:Status, 19:Valor, 21:Mês, 22:Ano
         const id = row.c[0]?.v || '';
         const indexE_loja = row.c[4]?.v || '';
         const empreendimento = row.c[2]?.v || '';
@@ -122,7 +129,7 @@ export async function fetchReceivables(user: UserData): Promise<Receivable[]> {
         const previsaoMes = row.c[21]?.v || '';
         const previsaoAno = row.c[22]?.v || '';
 
-        // Coleta todos os campos para o Bitrix
+        // Coleta todos os campos para envio ao CRM (Bitrix) como histórico
         const allFields: Record<string, string> = {};
         row.c.forEach((cell: any, idx: number) => {
           const colLabel = cols[idx]?.label || `Coluna ${idx}`;
@@ -151,7 +158,8 @@ export async function fetchReceivables(user: UserData): Promise<Receivable[]> {
           allFields
         };
 
-        // Regras de Função (Role Assignment)
+        // Lógica de Atribuição de Papel (Role Assignment)
+        // Define se o usuário atual tem "permissão" de ver este registro e em qual qualidade
         const normalizedLoja = normalizeName(item.loja);
         
         if (normalizeName(item.nome) === searchName) {
@@ -160,7 +168,7 @@ export async function fetchReceivables(user: UserData): Promise<Receivable[]> {
           item.userRole = 'Líder Trainee';
         } else if (normalizeName(item.lider) === searchName) {
           item.userRole = 'Líder';
-        } else if (isDiretor && normalizedLoja === userLoja) {
+        } else if (isDiretor && normalizedLoja === userLoja && userLoja) {
           item.userRole = 'Diretor';
         } else if (isSuper) {
           item.userRole = 'Superintendente';
@@ -169,8 +177,9 @@ export async function fetchReceivables(user: UserData): Promise<Receivable[]> {
         return item;
       })
       .filter((item: Receivable) => {
+        // Filtro de segurança: só retorna o que o usuário pode ver e que tem valor
         const hasRole = !!item.userRole;
-        const isNotZero = item.valorNumeric !== 0;
+        const isNotZero = item.valorNumeric > 0;
         return hasRole && isNotZero;
       });
   } catch (error) {

@@ -31,38 +31,42 @@ service cloud.firestore {
     function isValidPromisedCommission(data) {
       let requiredKeys = ['pvId', 'receivableId', 'amount', 'previsaoMes', 'previsaoAno', 'userId', 'status', 'stageName', 'requestedAt', 'updatedAt'];
       return data.keys().hasAll(requiredKeys) &&
-             data.pvId is string &&
-             data.receivableId is string &&
+             data.pvId is string && data.pvId.size() < 128 &&
+             data.receivableId is string && data.receivableId.size() < 256 &&
              data.amount is number &&
              data.previsaoMes is string &&
              data.previsaoAno is string &&
              data.userId == request.auth.uid &&
              data.status in ['pending', 'approved', 'rejected'] &&
-             data.stageName is string &&
+             data.stageName is string && data.stageName.size() < 256 &&
              data.requestedAt == request.time &&
              data.updatedAt == request.time &&
              (data.keys().hasAny(['isCollateral']) ? (data.isCollateral is bool) : true) &&
-             (data.keys().hasAny(['collateralFor']) ? (data.collateralFor is string) : true) &&
-             (data.keys().hasAny(['userRole']) ? (data.userRole is string) : true);
+             (data.keys().hasAny(['collateralFor']) ? (data.collateralFor is string && data.collateralFor.size() < 256) : true) &&
+             (data.keys().hasAny(['userRole']) ? (data.userRole is string && data.userRole.size() < 128) : true);
     }
 
     function isValidUpdate(data) {
-      let allowedKeys = ['status', 'stageName', 'updatedAt', 'signatureData', 'signedAt', 'userRole'];
+      let allowedKeys = ['status', 'stageName', 'updatedAt', 'signatureData', 'signedAt', 'userRole', 'isCollateral', 'collateralFor'];
       let affected = data.diff(existing()).affectedKeys();
       
-      return affected.hasOnly(allowedKeys) &&
+      return data.userId == request.auth.uid &&
+             affected.hasOnly(allowedKeys) &&
+             incoming().userId == existing().userId &&
+             incoming().receivableId == existing().receivableId &&
+             incoming().pvId == existing().pvId &&
              (affected.hasAny(['status']) ? (data.status in ['pending', 'approved', 'rejected']) : true) &&
-             (affected.hasAny(['stageName']) ? (data.stageName is string) : true) &&
-             (affected.hasAny(['signatureData']) ? (
-               data.signatureData.name is string &&
-               data.signatureData.document is string &&
-               data.signatureData.address is string &&
-               data.signatureData.ip is string &&
-               data.signatureData.userAgent is string &&
-               data.signedAt == request.time
-             ) : true) &&
-             (affected.hasAny(['userRole']) ? (data.userRole is string) : true) &&
+             (affected.hasAny(['stageName']) ? (data.stageName is string && data.stageName.size() < 256) : true) &&
+             (affected.hasAny(['signatureData']) ? (data.signatureData is map) : true) &&
+             (affected.hasAny(['signedAt']) ? (data.signedAt == request.time) : true) &&
              data.updatedAt == request.time;
+    }
+
+    function isValidResubmission(data) {
+      return isValidPromisedCommission(data) &&
+             data.userId == existing().userId &&
+             data.receivableId == existing().receivableId &&
+             data.pvId == existing().pvId;
     }
 
     // --- Resources ---
@@ -75,14 +79,12 @@ service cloud.firestore {
       
       // Secure Create: Validate ID and strict schema
       allow create: if isSignedIn() && 
-                    request.auth.token.email_verified == true &&
                     isValidId(commissionId) && 
                     isValidPromisedCommission(request.resource.data);
       
       // Allow Status Updates or Full Re-Submission (e.g. from Rejected state)
       allow update: if isOwner(existing()) && 
-                    request.auth.token.email_verified == true &&
-                    (isValidUpdate(incoming()) || isValidPromisedCommission(incoming()));
+                    (isValidUpdate(incoming()) || isValidResubmission(incoming()));
       
       // Allow delete if owner. Handle non-existent doc case to avoid PERMISSION_DENIED on no-op deletes
       allow delete: if isSignedIn() && (resource == null || isOwner(resource.data));
@@ -98,7 +100,6 @@ service cloud.firestore {
     match /access_logs/{logId} {
       allow create: if isSignedIn() && 
                     incoming().userId == request.auth.uid &&
-                    incoming().userEmail == request.auth.token.email &&
                     incoming().timestamp == request.time;
       // No read/update/delete allowed from client for audit logs
     }
