@@ -172,6 +172,15 @@ export default function App() {
                 </p>
               </div>
             </div>
+
+            <div className={cn(
+              "pt-4 border-t text-[9px] uppercase tracking-wider text-center font-semibold flex flex-col md:flex-row items-center justify-center gap-1 opacity-40",
+              theme === 'dark' ? "border-white/5 text-white/80" : "border-slate-100 text-slate-700"
+            )}>
+              <span>Antecipa Soluções Financeiras</span>
+              <span className="hidden md:inline">•</span>
+              <span>CNPJ: 12.670.349/0001-10</span>
+            </div>
           </div>
         </motion.div>
       </div>
@@ -266,9 +275,14 @@ export default function App() {
                     <span>GOOGLE AUTH: CONECTADO</span>
                   </div>
                 )}
-                <p className="text-[10px] uppercase tracking-[0.2em] text-black/25 leading-relaxed font-medium">
+                 <p className="text-[10px] uppercase tracking-[0.2em] text-black/25 leading-relaxed font-medium">
                   Acesso restrito ao quadro de colaboradores. A autenticação Google é necessária para sincronização em tempo real.
                 </p>
+                
+                <div className="pt-4 border-t border-black/5 flex flex-col gap-0.5 text-[9px] text-black/30 font-semibold uppercase tracking-wider">
+                  <span>Antecipa Soluções Financeiras</span>
+                  <span>CNPJ: 12.670.349/0001-10</span>
+                </div>
               </div>
             </div>
 

@@ -18,7 +18,7 @@ export default function Footer() {
           </div>
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.3em] opacity-40 mb-2">CNPJ</p>
-            <p className="text-xs font-mono">12.345.678/0001-90</p>
+            <p className="text-xs font-mono">12.670.349/0001-10</p>
           </div>
         </div>
 

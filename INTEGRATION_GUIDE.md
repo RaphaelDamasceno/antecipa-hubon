@@ -1,5 +1,11 @@
 # Guia de Integração e Acesso Restrito (Antecipa Portal)
 
+**Antecipa Soluções Financeiras**  
+**Razão Social:** Antecipa Soluções Financeiras Ltda.  
+**CNPJ:** 12.670.349/0001-10  
+
+---
+
 Este documento detalha o sistema de controle de acesso por redirecionamento seguro implementado no portal **Antecipa**. Isto foi desenvolvido especificamente para ocultar métodos de entrada do usuário final e garantir que corretores acessem o portal exclusivamente a partir de botões integrados na plataforma/aplicativo da empresa.
 
 ---

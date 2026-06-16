@@ -87,7 +87,7 @@ QUADRO-RESUMO DA OPERAÇÃO
 
 CEDENTE (CORRETOR): ${formData.nome}, CPF: ${formData.cpf}, CRECI: ${formData.creci}, Endereço: ${formData.endereco}, E-mail: ${formData.email};
 
-CESSIONÁRIA: ANTECIPA BROKER SOLUCOES E NEGOCIOS LTDA, CNPJ: 56.402.046/0001-38, Endereço: AV GOVERNADOR AGAMENON MAGALHAES, No 4775, Sala 1201 e 1202 - EMPR BOA VISTA, ILHA DO LEITE - RECIFE/PE, E-mail: contato@antecipabroker.com.br;
+CESSIONÁRIA: ANTECIPA SOLUÇÕES FINANCEIRAS LTDA, CNPJ: 12.670.349/0001-10, Endereço: AV GOVERNADOR AGAMENON MAGALHAES, No 4775, Sala 1201 e 1202 - EMPR BOA VISTA, ILHA DO LEITE - RECIFE/PE, E-mail: contato@antecipa.com.br;
 
 OPERAÇÃO VINCULADA: [${formData.operacaoTipo}], Imóvel: ${formData.imovel}, Cliente(s): ${formData.cliente}.
 
@@ -164,7 +164,7 @@ E, por estarem justos e contratados, firmam o presente instrumento em uma única
 Recife, ${fullDateStr}.
 
 CEDENTE: ${formData.nome}
-CESSIONÁRIA: ANTECIPA BROKER SOLUCOES E NEGOCIOS LTDA
+CESSIONÁRIA: ANTECIPA SOLUÇÕES FINANCEIRAS LTDA
 ANUENTE / INTERVENIENTE:
 
 ASSINADO DIGITALMENTE POR:
@@ -593,7 +593,7 @@ DATA/HORA: ${now.toLocaleString('pt-BR')}
                     <section>
                       <p className={cn("font-bold mb-2", theme === 'dark' ? "text-white/60" : "text-slate-700")}>QUADRO-RESUMO DA OPERAÇÃO</p>
                       <p><span className={theme === 'dark' ? "text-white/20 font-bold" : "text-slate-400 font-bold"}>CEDENTE (CORRETOR):</span> {formData.nome}, CPF: {formData.cpf}, CRECI: {formData.creci}, Endereço: {formData.endereco}, E-mail: {formData.email};</p>
-                      <p><span className={theme === 'dark' ? "text-white/20 font-bold" : "text-slate-400 font-bold"}>CESSIONÁRIA:</span> ANTECIPA BROKER SOLUCOES E NEGOCIOS LTDA, CNPJ: 56.402.046/0001-38, Endereço: AV GOVERNADOR AGAMENON MAGALHAES, No 4775, Sala 1201 e 1202 - EMPR BOA VISTA, ILHA DO LEITE - RECIFE/PE, E-mail: contato@antecipabroker.com.br;</p>
+                      <p><span className={theme === 'dark' ? "text-white/20 font-bold" : "text-slate-400 font-bold"}>CESSIONÁRIA:</span> ANTECIPA SOLUÇÕES FINANCEIRAS LTDA, CNPJ: 12.670.349/0001-10, Endereço: AV GOVERNADOR AGAMENON MAGALHAES, No 4775, Sala 1201 e 1202 - EMPR BOA VISTA, ILHA DO LEITE - RECIFE/PE, E-mail: contato@antecipa.com.br;</p>
                       <p><span className={theme === 'dark' ? "text-white/20 font-bold" : "text-slate-400 font-bold"}>OPERAÇÃO VINCULADA:</span> [{formData.operacaoTipo}], Imóvel: {formData.imovel}, Cliente(s): {formData.cliente}.</p>
                       <p><span className={theme === 'dark' ? "text-white/20 font-bold" : "text-slate-400 font-bold"}>CRÉDITO DE COMISSÃO:</span> <br/>
                          Valor bruto estimado: {formData.valorBruto} <br/>
@@ -698,7 +698,7 @@ DATA/HORA: ${now.toLocaleString('pt-BR')}
                         <p className={cn("border-t pt-2", theme === 'dark' ? "border-white/10" : "border-slate-200")}>CEDENTE: {formData.nome}</p>
                       </div>
                       <div>
-                        <p className={cn("border-t pt-2", theme === 'dark' ? "border-white/10" : "border-slate-200")}>CESSIONÁRIA: ANTECIPA BROKER SOLUCOES E NEGOCIOS LTDA</p>
+                        <p className={cn("border-t pt-2", theme === 'dark' ? "border-white/10" : "border-slate-200")}>CESSIONÁRIA: ANTECIPA SOLUÇÕES FINANCEIRAS LTDA</p>
                       </div>
                       <div className="col-span-2 text-center opacity-50">
                         <p className={cn("border-t pt-2 mx-auto w-1/2", theme === 'dark' ? "border-white/10" : "border-slate-200")}>ANUENTE / INTERVENIENTE</p>
