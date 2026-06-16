@@ -121,14 +121,14 @@ export default function App() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
           className={cn(
-            "w-full max-w-xl rounded-sm p-8 md:p-12 relative overflow-hidden border shadow-2xl transition-all duration-300 z-10",
+            "w-full max-w-md rounded-sm p-8 md:p-10 relative overflow-hidden border shadow-2xl transition-all duration-300 z-10 text-center",
             theme === 'dark' 
               ? "bg-[#111111]/90 border-white/5" 
               : "bg-white border-slate-200"
           )}
         >
           {/* Top glowing Lock Icon */}
-          <div className="flex justify-center mb-8">
+          <div className="flex justify-center mb-6">
             <div className={cn(
               "p-4 rounded-full relative flex items-center justify-center transition-colors",
               theme === 'dark' ? "bg-rose-500/10 text-rose-500" : "bg-rose-50 text-rose-500"
@@ -138,137 +138,39 @@ export default function App() {
             </div>
           </div>
 
-          <div className="text-center space-y-4 mb-4">
+          <div className="space-y-3 mb-6">
             <span className={cn(
               "text-[9px] uppercase tracking-[0.4em] font-bold block",
               theme === 'dark' ? "text-rose-400" : "text-rose-500"
             )}>
-              AMBIENTE DE INTEGRACAO EXTERNA
+              AMBIENTE DE ACESSO RESTRITO
             </span>
-            <h1 className="text-2xl md:text-3xl font-light uppercase tracking-tight">
+            <h1 className="text-2xl font-light uppercase tracking-tight">
               Acesso <span className="font-semibold">Bloqueado</span>
             </h1>
             <p className={cn(
-              "text-xs leading-relaxed max-w-md mx-auto",
-              theme === 'dark' ? "text-white/50" : "text-slate-500"
+              "text-xs leading-relaxed",
+              theme === 'dark' ? "text-white/55" : "text-slate-500"
             )}>
-              Sua plataforma foi configurada para ser aberta <strong>exclusivamente a partir do aplicativo da sua empresa</strong>. O acesso avulso está restrito para integridade de dados.
+              Este sistema é de uso corporativo restrito e só pode ser aberto diretamente a partir das ferramentas autorizadas e integradas no ecossistema da nossa empresa.
             </p>
           </div>
 
           <div className={cn(
-            "border-t border-b py-6 mb-8 space-y-4",
+            "border-t pt-6 space-y-4 text-left",
             theme === 'dark' ? "border-white/5" : "border-slate-100"
           )}>
             <div className="flex items-start gap-3">
               <ShieldAlert className="text-amber-500 shrink-0 mt-0.5" size={16} />
               <div>
-                <h4 className="text-[10px] uppercase tracking-widest font-bold">Por que isso acontece?</h4>
+                <h4 className="text-[10px] uppercase tracking-widest font-bold">Aviso de Segurança</h4>
                 <p className={cn(
                   "text-[11px] leading-relaxed mt-1",
                   theme === 'dark' ? "text-white/40" : "text-slate-500"
                 )}>
-                  Para garantir segurança cibernética e sincronizar as negociações de forma segura, o sistema exige que os corretores venham de um fluxo autenticado/redirecionado das ferramentas integradas da empresa.
+                  A fim de preservar a integridade das operações e sincronizar as negociações com total confidencialidade, visitas diretas e acessos avulsos através do navegador web comum são restritos por segurança.
                 </p>
               </div>
-            </div>
-
-            <div className="flex items-start gap-3">
-              <HelpCircle className={cn("shrink-0 mt-0.5", theme === 'dark' ? "text-blue-400" : "text-blue-500")} size={16} />
-              <div>
-                <h4 className="text-[10px] uppercase tracking-widest font-bold">Como configurar o botão no App da sua Empresa:</h4>
-                <p className={cn(
-                  "text-[11px] leading-relaxed mt-1 mb-2",
-                  theme === 'dark' ? "text-white/40" : "text-slate-500"
-                )}>
-                  Defina a URL de destino com o token seguro no seu aplicativo:
-                </p>
-                <div className={cn(
-                  "p-3 rounded-sm text-[10px] font-mono select-all overflow-x-auto border mb-3",
-                  theme === 'dark' 
-                    ? "bg-[#090909] border-white/5 text-blue-300" 
-                    : "bg-slate-50 border-slate-200 text-blue-600 font-semibold"
-                )}>
-                  {window.location.origin}/?token=app_empresa
-                </div>
-
-                <p className={cn(
-                  "text-[10px] italic leading-relaxed",
-                  theme === 'dark' ? "text-white/30" : "text-slate-400"
-                )}>
-                  Exemplo de código no botão do seu App:
-                </p>
-                <div className={cn(
-                  "p-3 rounded-sm text-[9px] font-mono select-all overflow-x-auto border mt-1",
-                  theme === 'dark' 
-                    ? "bg-[#050505] border-white/5 text-emerald-400/90" 
-                    : "bg-slate-100 border-slate-200 text-emerald-700 font-medium"
-                )}>
-                  {`<a href="${window.location.origin}/?token=app_empresa" className="btn-acesso">
-  Abrir Antecipa Portal
-</a>`}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* SIMULATOR */}
-          <div className={cn(
-            "p-5 rounded-sm border",
-            theme === 'dark' ? "bg-white/[0.02] border-white/5" : "bg-slate-50 border-slate-150"
-          )}>
-            <div className="flex items-center gap-2 mb-3">
-              <Key size={14} className="text-amber-500" />
-              <span className="text-[10px] uppercase tracking-wider font-bold">Simulação e Testes Locally</span>
-            </div>
-            
-            <p className={cn(
-              "text-[11px] mb-4 leading-relaxed",
-              theme === 'dark' ? "text-white/45" : "text-slate-500"
-            )}>
-              Cole o query token abaixo para simular o redirecionamento ou ative o facilitador no botão inteligente abaixo:
-            </p>
-
-            <div className="flex gap-2">
-              <input
-                type="text"
-                placeholder="Ex e.g. app_empresa"
-                value={simulationToken}
-                onChange={(e) => setSimulationToken(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSimulateAccess(simulationToken)}
-                className={cn(
-                  "flex-1 p-2.5 text-xs rounded-sm outline-none border transition-colors",
-                  theme === 'dark'
-                    ? "bg-[#0A0A0A] border-white/10 text-white focus:border-white/30"
-                    : "bg-white border-slate-350 text-slate-800 focus:border-slate-500"
-                )}
-              />
-              <button
-                onClick={() => handleSimulateAccess(simulationToken)}
-                className="bg-blue-600 hover:bg-blue-500 text-white px-4 rounded-sm text-xs font-bold uppercase tracking-wider transition-all active:scale-95 shrink-0"
-              >
-                Ativar
-              </button>
-            </div>
-
-            {errorSimulation && (
-              <p className="text-[10px] text-rose-500 font-bold mt-2 uppercase tracking-wider animate-pulse">
-                Token inválido ou incorreto. Use "app_empresa".
-              </p>
-            )}
-
-            <div className="mt-4 pt-4 border-t border-dashed border-slate-200 dark:border-white/5 flex flex-col gap-2">
-              <button
-                onClick={() => handleSimulateAccess('app_empresa')}
-                className={cn(
-                  "text-[10px] w-full py-2.5 px-3 rounded-sm border transition-all active:scale-95 flex items-center justify-center gap-1.5 font-bold uppercase tracking-widest",
-                  theme === 'dark'
-                    ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
-                    : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                )}
-              >
-                <Sparkles size={11} /> Simular Clique no Botão do Meu App (token=app_empresa)
-              </button>
             </div>
           </div>
         </motion.div>
