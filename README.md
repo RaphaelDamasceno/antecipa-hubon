@@ -1,20 +1,33 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# Antecipa Portal (antecipa-hubon)
 
-# Run and deploy your AI Studio app
+Este projeto utiliza **React + TypeScript + Vite** integrado ao Firebase (Firestore e Authentication).
 
-This contains everything you need to run your app locally.
+## 🔒 Segurança de Credenciais & Configuração Local
 
-View your app in AI Studio: https://ai.studio/apps/458009ee-a488-47a9-a8ab-31ed63f2ea80
+Para garantir a segurança do projeto e evitar o vazamento de credenciais em repositórios públicos, o arquivo original de configuração do Firebase (`firebase-applet-config.json`) foi adicionado ao `.gitignore` e não deve ser commitado.
 
-## Run Locally
+As credenciais do Firebase são carregadas de forma segura através de variáveis de ambiente com o prefixo `VITE_`.
 
-**Prerequisites:**  Node.js
+### Passo a Passo para Configuração Local:
 
+1. **Crie o arquivo de ambiente local**:
+   Duplique o arquivo `.env.example` na raiz do projeto e renomeie-o para `.env.local`:
+   ```bash
+   cp .env.example .env.local
+   ```
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+2. **Preencha as variáveis de ambiente**:
+   Abra o seu arquivo `.env.local` e insira as credenciais do seu projeto Firebase correspondentes:
+   ```env
+   VITE_FIREBASE_API_KEY="SUA_API_KEY"
+   VITE_FIREBASE_AUTH_DOMAIN="SEU_AUTH_DOMAIN"
+   VITE_FIREBASE_PROJECT_ID="SEU_PROJECT_ID"
+   VITE_FIREBASE_FIRESTORE_DATABASE_ID="seu-database-id-ou-(default)"
+   VITE_FIREBASE_STORAGE_BUCKET="SEU_STORAGE_BUCKET"
+   VITE_FIREBASE_MESSAGING_SENDER_ID="SEU_MESSAGING_SENDER_ID"
+   VITE_FIREBASE_APP_ID="SEU_APP_ID"
+   ```
+
+---
+
+*Nota: Certifique-se de nunca commitar arquivos `.env.local` ou credenciais diretamente no repositório público.*
