@@ -28,6 +28,24 @@ As credenciais do Firebase são carregadas de forma segura através de variávei
    VITE_FIREBASE_APP_ID="SEU_APP_ID"
    ```
 
+### 🔑 Configurações do Portão de Acesso, Integração Bitrix24 & Google Sheets
+
+Adicione também as seguintes variáveis ao seu arquivo `.env.local` para habilitar a validação do portão de acesso de links, o envio de operações para o CRM Bitrix24 e a sincronização com as planilhas do Google Sheets:
+
+```env
+# Token de acesso ao Portal
+VITE_ACCESS_TOKEN="seu_token_secreto_aqui"
+
+# Integrações Bitrix24
+VITE_BITRIX_WEBHOOK_WRITE_URL="https://seu-dominio.bitrix24.com.br/rest/USER_ID/TOKEN/crm.deal.add.json"
+VITE_BITRIX_LIST_URL="https://seu-dominio.bitrix24.com.br/rest/USER_ID/TOKEN/crm.deal.list.json"
+
+# Configurações do Google Sheets
+VITE_SHEET_ID="ID_DA_SUA_PLANILHA_GOOGLE"
+VITE_SHEET_TAB_USUARIOS="usuários"
+VITE_SHEET_TAB_CR="CR 2025"
+```
+
 ---
 
 *Nota: Certifique-se de nunca commitar arquivos `.env.local` ou credenciais diretamente no repositório público.*

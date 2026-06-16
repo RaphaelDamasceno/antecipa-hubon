@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { LogIn, User, Calendar, CreditCard, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { LogIn, User, Calendar, CreditCard, Loader2, AlertCircle, CheckCircle2, Clock } from 'lucide-react';
 import { authenticateUser } from '../services/sheetsService';
 import { cn } from '../lib/utils';
 
@@ -16,6 +16,38 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
   });
   const [status, setStatus] = useState<'idle' | 'loading' | 'error' | 'success'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
+  const [lockoutTimeLeft, setLockoutTimeLeft] = useState<number>(() => {
+    const rawUntil = localStorage.getItem('antecipa_login_lockout_until');
+    if (rawUntil) {
+      const until = parseInt(rawUntil, 10);
+      const timeLeft = until - Date.now();
+      return timeLeft > 0 ? timeLeft : 0;
+    }
+    return 0;
+  });
+
+  useEffect(() => {
+    if (lockoutTimeLeft <= 0) return;
+
+    const interval = setInterval(() => {
+      const rawUntil = localStorage.getItem('antecipa_login_lockout_until');
+      if (rawUntil) {
+        const until = parseInt(rawUntil, 10);
+        const timeLeft = until - Date.now();
+        if (timeLeft > 0) {
+          setLockoutTimeLeft(timeLeft);
+        } else {
+          setLockoutTimeLeft(0);
+          localStorage.removeItem('antecipa_login_lockout_until');
+          localStorage.setItem('antecipa_login_attempts', '0');
+        }
+      } else {
+        setLockoutTimeLeft(0);
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [lockoutTimeLeft]);
 
   const formatCPF = (value: string) => {
     const numbers = value.replace(/\D/g, '');
@@ -46,6 +78,10 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (lockoutTimeLeft > 0) {
+      return;
+    }
+
     if (!formData.nome || !formData.dataNascimento || !formData.cpf) {
       setErrorMessage('Por favor, preencha todos os campos.');
       setStatus('error');
@@ -63,16 +99,34 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
       );
 
       if (foundUser) {
+        localStorage.setItem('antecipa_login_attempts', '0');
+        localStorage.removeItem('antecipa_login_lockout_until');
+        setLockoutTimeLeft(0);
         setStatus('success');
         setTimeout(() => {
           onLoginSuccess(foundUser);
         }, 1000);
       } else {
-        setErrorMessage('Dados não encontrados ou incorretos. Verifique as informações e tente novamente.');
-        setStatus('error');
+        handleFailedAttempt();
       }
     } catch (error) {
-      setErrorMessage('Ocorreu um erro ao validar seus dados. Tente novamente mais tarde.');
+      handleFailedAttempt('Ocorreu um erro ao validar seus dados. Tente novamente mais tarde.');
+    }
+  };
+
+  const handleFailedAttempt = (customMsg?: string) => {
+    const rawAttempts = localStorage.getItem('antecipa_login_attempts') || '0';
+    const attempts = parseInt(rawAttempts, 10) + 1;
+    localStorage.setItem('antecipa_login_attempts', attempts.toString());
+
+    if (attempts >= 5) {
+      const lockoutMinutes = 5;
+      const lockoutUntil = Date.now() + lockoutMinutes * 60 * 1000;
+      localStorage.setItem('antecipa_login_lockout_until', lockoutUntil.toString());
+      setLockoutTimeLeft(lockoutMinutes * 60 * 1000);
+      setStatus('idle');
+    } else {
+      setErrorMessage(customMsg || 'Dados não encontrados ou incorretos. Verifique as informações e tente novamente.');
       setStatus('error');
     }
   };
@@ -137,8 +191,24 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
           </div>
 
           <AnimatePresence mode="wait">
-            {status === 'error' && (
+            {lockoutTimeLeft > 0 && (
               <motion.div
+                key="lockout"
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="flex items-center gap-3 text-rose-400 bg-rose-500/5 p-4 border border-rose-500/20"
+              >
+                <Clock size={16} className="shrink-0" />
+                <span className="text-[11px] font-bold uppercase tracking-wider">
+                  Muitas tentativas. Tente novamente em {Math.floor(lockoutTimeLeft / 60000)} minutos e {Math.floor((lockoutTimeLeft % 60000) / 1000)} segundos.
+                </span>
+              </motion.div>
+            )}
+
+            {lockoutTimeLeft <= 0 && status === 'error' && (
+              <motion.div
+                key="error"
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
@@ -151,6 +221,7 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
 
             {status === 'success' && (
               <motion.div
+                key="success"
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
@@ -165,15 +236,20 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
           <div className="pt-4">
             <button
               type="submit"
-              disabled={status === 'loading' || status === 'success'}
+              disabled={status === 'loading' || status === 'success' || lockoutTimeLeft > 0}
               className={cn(
                 "w-full py-6 font-bold uppercase tracking-[0.3em] text-[11px] transition-all flex items-center justify-center gap-3 rounded-sm",
-                status === 'loading' 
+                status === 'loading' || lockoutTimeLeft > 0
                   ? "bg-white/10 text-white/40 cursor-not-allowed" 
                   : "bg-white text-[#0A0A0A] hover:bg-white/90 active:scale-[0.99] shadow-[0_0_30px_rgba(255,255,255,0.05)]"
               )}
             >
-              {status === 'loading' ? (
+              {lockoutTimeLeft > 0 ? (
+                <>
+                  <span>Acesso Temporariamente Bloqueado</span>
+                  <Clock size={16} />
+                </>
+              ) : status === 'loading' ? (
                 <>
                   <Loader2 className="animate-spin" size={16} />
                   <span>Validando Identidade</span>

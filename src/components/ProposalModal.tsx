@@ -5,6 +5,25 @@ import { cn } from '../lib/utils';
 import { updateBitrixDealWithFile, rejectBitrixDeal } from '../services/bitrixService';
 import { saveSignature, updateCommissionStatus } from '../services/firebaseService';
 
+async function getClientIp(): Promise<string> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 3000);
+  try {
+    const response = await fetch('https://api.ipify.org?format=json', {
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+    if (!response.ok) {
+      throw new Error('Network response was not ok');
+    }
+    const data = await response.json();
+    return data.ip || 'IP_NAO_DISPONIVEL';
+  } catch (error) {
+    clearTimeout(timeoutId);
+    return 'IP_NAO_DISPONIVEL';
+  }
+}
+
 interface ProposalModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -76,7 +95,7 @@ export default function ProposalModal({ isOpen, onClose, proposal, userInfo, onS
     try {
       const now = new Date();
       const fullDateStr = `${now.getDate()} de ${now.toLocaleString('pt-BR', { month: 'long' })} de ${now.getFullYear()}`;
-      const ip = "127.0.0.1";
+      const ip = await getClientIp();
       const userAgent = navigator.userAgent;
       
       const contractText = `

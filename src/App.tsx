@@ -23,11 +23,18 @@ export default function App() {
   });
 
   const [isAccessAllowed, setIsAccessAllowed] = useState<boolean>(() => {
+    const envToken = import.meta.env.VITE_ACCESS_TOKEN;
+    
+    // Se a variável não estiver definida, o portão deve estar ABERTO
+    if (!envToken) {
+      return true;
+    }
+
     const params = new URLSearchParams(window.location.search);
     const token = params.get('token') || params.get('ref') || params.get('src');
     const referrer = document.referrer?.toLowerCase() || '';
     
-    const hasValidToken = token === 'antecipa_portal' || token === 'secure_btn' || token === 'bitrix' || token === 'app_empresa' || token === 'sistema_interno';
+    const hasValidToken = token === envToken;
     const hasValidReferrer = referrer.includes('bitrix') || referrer.includes('crm') || referrer.includes('antecipabroker') || referrer.includes('meuapp') || referrer.includes('app-empresa');
     const hasSessionAllowed = sessionStorage.getItem('portal_access_allowed') === 'true';
     
@@ -37,20 +44,6 @@ export default function App() {
     }
     return false;
   });
-
-  const [simulationToken, setSimulationToken] = useState('');
-  const [errorSimulation, setErrorSimulation] = useState(false);
-
-  const handleSimulateAccess = (token: string) => {
-    if (token === 'antecipa_portal' || token === 'secure_btn' || token === 'bitrix' || token === 'app_empresa' || token === 'sistema_interno') {
-      sessionStorage.setItem('portal_access_allowed', 'true');
-      setIsAccessAllowed(true);
-      setErrorSimulation(false);
-    } else {
-      setErrorSimulation(true);
-      setTimeout(() => setErrorSimulation(false), 3000);
-    }
-  };
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {

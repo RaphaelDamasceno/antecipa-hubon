@@ -2,14 +2,26 @@ import { Receivable, UserData } from './sheetsService';
 
 export type UserAuth = UserData;
 
-const BITRIX_WEBHOOK_URL = 'https://hubnogueira.bitrix24.com.br/rest/382/tz0e5k2s7a44szbv/crm.deal.add.json';
-const BITRIX_LIST_URL = 'https://hubnogueira.bitrix24.com.br/rest/382/bjfsu3eau1vm3jdm/crm.deal.list.json';
+/**
+ * NOTA DE SEGURANÇA:
+ * No Vercel/ambientes de hospedagem Frontend, as variáveis de ambiente prefixadas com VITE_ 
+ * são injetadas no build e permanecem expostas no bundle JavaScript do navegador.
+ * Para uma produção com segurança máxima, o ideal é criar uma Edge Function ou API Route
+ * no servidor (ex: /api/bitrix-proxy) que faça o proxy seguro das chamadas, 
+ * mantendo as chaves e tokens confidenciais estritamente protegidos no servidor.
+ */
+
 const CATEGORY_ID = 89;
 export const PV_FIELD = 'UF_CRM_1758140731010';
 
 export async function fetchExistingDeals(pvIds: string[]) {
+  const listUrl = import.meta.env.VITE_BITRIX_LIST_URL;
+  if (!listUrl) {
+    throw new Error("Configuração de integração Bitrix não encontrada. Contate o administrador.");
+  }
+
   try {
-    const response = await fetch(BITRIX_LIST_URL, {
+    const response = await fetch(listUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -82,10 +94,14 @@ export const BITRIX_FIELDS = {
 };
 
 export async function updateBitrixDealWithFile(dealId: string, base64File: string, fileName: string) {
-  const UPDATE_URL = 'https://hubnogueira.bitrix24.com.br/rest/382/tz0e5k2s7a44szbv/crm.deal.update.json';
+  const writeUrl = import.meta.env.VITE_BITRIX_WEBHOOK_WRITE_URL;
+  if (!writeUrl) {
+    throw new Error("Configuração de integração Bitrix não encontrada. Contate o administrador.");
+  }
+  const updateUrl = writeUrl.replace('crm.deal.add.json', 'crm.deal.update.json');
   
   try {
-    const response = await fetch(UPDATE_URL, {
+    const response = await fetch(updateUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -108,10 +124,14 @@ export async function updateBitrixDealWithFile(dealId: string, base64File: strin
 }
 
 export async function rejectBitrixDeal(dealId: string) {
-  const UPDATE_URL = 'https://hubnogueira.bitrix24.com.br/rest/382/tz0e5k2s7a44szbv/crm.deal.update.json';
+  const writeUrl = import.meta.env.VITE_BITRIX_WEBHOOK_WRITE_URL;
+  if (!writeUrl) {
+    throw new Error("Configuração de integração Bitrix não encontrada. Contate o administrador.");
+  }
+  const updateUrl = writeUrl.replace('crm.deal.add.json', 'crm.deal.update.json');
   
   try {
-    const response = await fetch(UPDATE_URL, {
+    const response = await fetch(updateUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -206,8 +226,13 @@ export async function createBitrixDeal(receivable: Receivable, userInfo: UserAut
     }
   };
 
+  const writeUrl = import.meta.env.VITE_BITRIX_WEBHOOK_WRITE_URL;
+  if (!writeUrl) {
+    throw new Error("Configuração de integração Bitrix não encontrada. Contate o administrador.");
+  }
+
   try {
-    const response = await fetch(BITRIX_WEBHOOK_URL, {
+    const response = await fetch(writeUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -227,6 +252,11 @@ export async function createMultipleBitrixDeals(receivables: Receivable[], userI
     if (!groupById[r.id]) groupById[r.id] = [];
     groupById[r.id].push(r);
   });
+
+  const writeUrl = import.meta.env.VITE_BITRIX_WEBHOOK_WRITE_URL;
+  if (!writeUrl) {
+    throw new Error("Configuração de integração Bitrix não encontrada. Contate o administrador.");
+  }
 
   const promises = Object.entries(groupById).map(async ([id, items]) => {
     const totalVal = items.reduce((acc, curr) => acc + curr.valorNumeric, 0);
@@ -264,14 +294,31 @@ export async function createMultipleBitrixDeals(receivables: Receivable[], userI
       }
     };
 
-    const response = await fetch(BITRIX_WEBHOOK_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    return response.json();
+    try {
+      const response = await fetch(writeUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!response.ok) {
+        throw new Error(`Falha no Bitrix ao processar PV ${id}: status ${response.status}`);
+      }
+      return await response.json();
+    } catch (err) {
+      console.error(`Erro ao criar Deal do Bitrix para o PV ${id}:`, err);
+      throw err;
+    }
   });
 
-  return Promise.all(promises);
+  const results = await Promise.allSettled(promises);
+  
+  const rejected = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected');
+  const fulfilled = results.filter((r): r is PromiseFulfilledResult<any> => r.status === 'fulfilled');
+
+  if (rejected.length > 0) {
+    throw new Error(`Falha ao registrar solicitações no Bitrix: ${rejected.length} de ${results.length} falharam.`);
+  }
+
+  return fulfilled.map(r => r.value);
 }
 

@@ -1,8 +1,7 @@
 import { normalizeCPF, normalizeDate, normalizeName } from '../lib/utils';
 
-const SHEET_ID = '1uzQAAUN3dbmBK7p14cBTywTYuG3PNLiZVJtLRUtljnU';
-const TAB_NAME = 'usuários';
-const TAB_CR = 'CR 2025';
+const TAB_NAME = import.meta.env.VITE_SHEET_TAB_USUARIOS ?? 'usuários';
+const TAB_CR = import.meta.env.VITE_SHEET_TAB_CR ?? 'CR 2025';
 
 export interface UserData {
   nome: string;
@@ -38,7 +37,11 @@ export interface Receivable {
 }
 
 async function fetchFromSheet(tab: string): Promise<any> {
-  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(tab)}`;
+  const sheetId = import.meta.env.VITE_SHEET_ID;
+  if (!sheetId) {
+    throw new Error("ID da planilha não configurado");
+  }
+  const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(tab)}`;
   const response = await fetch(url);
   const text = await response.text();
   return JSON.parse(text.substring(47, text.length - 2));
