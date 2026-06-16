@@ -1,5 +1,6 @@
+import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { Mail, Phone, MapPin, Globe, ArrowLeft, ShieldCheck, Target, Users } from 'lucide-react';
+import { ArrowLeft, ShieldCheck, Target, Users, Send, CheckCircle2, RotateCcw } from 'lucide-react';
 import Footer from './Footer';
 
 interface InstitutionalPageProps {
@@ -7,6 +8,54 @@ interface InstitutionalPageProps {
 }
 
 export default function InstitutionalPage({ onBack }: InstitutionalPageProps) {
+  const [nome, setNome] = useState('');
+  const [telefone, setTelefone] = useState('');
+  const [tipoSolicitacao, setTipoSolicitacao] = useState('duvida');
+  const [corpoTexto, setCorpoTexto] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+
+  // Simple telephone formatting helper
+  const handleTelefoneChange = (value: string) => {
+    // Only allow numbers
+    const numbersOnly = value.replace(/\D/g, '');
+    let formatted = '';
+    if (numbersOnly.length <= 11) {
+      if (numbersOnly.length > 2) {
+        formatted += `(${numbersOnly.slice(0, 2)}) `;
+        if (numbersOnly.length > 7) {
+          formatted += `${numbersOnly.slice(2, 7)}-${numbersOnly.slice(7)}`;
+        } else {
+          formatted += numbersOnly.slice(2);
+        }
+      } else {
+        formatted += numbersOnly;
+      }
+      setTelefone(formatted);
+    }
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!nome || !telefone || !corpoTexto) return;
+
+    setLoading(true);
+
+    // Simulate sending flow
+    setTimeout(() => {
+      setLoading(false);
+      setSubmitted(true);
+    }, 1200);
+  };
+
+  const handleReset = () => {
+    setNome('');
+    setTelefone('');
+    setTipoSolicitacao('duvida');
+    setCorpoTexto('');
+    setSubmitted(false);
+  };
+
   return (
     <div className="min-h-screen bg-white text-black selection:bg-black/5 selection:text-black">
       {/* Navbar / Header */}
@@ -52,7 +101,7 @@ export default function InstitutionalPage({ onBack }: InstitutionalPageProps) {
               <Target size={24} />
             </div>
             <h3 className="text-xs font-bold uppercase tracking-[0.2em]">Nossa Missão</h3>
-            <p className="text-sm text-black/60 leading-relaxed font-medium uppercase">
+            <p className="text-sm text-black/60 leading-relaxed font-medium uppercase text-justify">
               Prover soluções financeiras ágeis e seguras, democratizando o acesso ao capital de giro para corretores e imobiliárias em todo o Brasil.
             </p>
           </div>
@@ -61,8 +110,8 @@ export default function InstitutionalPage({ onBack }: InstitutionalPageProps) {
               <ShieldCheck size={24} />
             </div>
             <h3 className="text-xs font-bold uppercase tracking-[0.2em]">Segurança</h3>
-            <p className="text-sm text-black/60 leading-relaxed font-medium uppercase">
-              Operamos com os mais altos padrões de compliance e tecnologia blockchain para garantir que cada transação seja imutável e transparente.
+            <p className="text-sm text-black/60 leading-relaxed font-medium uppercase text-justify">
+              Operamos com os mais altos padrões de compliance e tecnologia robusta para garantir que cada transação de antecipação seja imutável e transparente.
             </p>
           </div>
           <div className="space-y-6">
@@ -70,43 +119,126 @@ export default function InstitutionalPage({ onBack }: InstitutionalPageProps) {
               <Users size={24} />
             </div>
             <h3 className="text-xs font-bold uppercase tracking-[0.2em]">Foco no Cliente</h3>
-            <p className="text-sm text-black/60 leading-relaxed font-medium uppercase">
+            <p className="text-sm text-black/60 leading-relaxed font-medium uppercase text-justify">
               Entendemos a dinâmica do mercado imobiliário e construímos ferramentas que simplificam o dia a dia de quem faz o mercado acontecer.
             </p>
           </div>
         </section>
 
-        {/* Long Text */}
-        <section className="grid grid-cols-1 md:grid-cols-2 gap-16 items-start border-t border-black/10 pt-16">
-          <div>
-            <h2 className="text-4xl font-light mb-8 uppercase tracking-tight">Referência em <span className="font-bold">Antecipação</span></h2>
-            <div className="space-y-6 text-black/70 leading-relaxed">
-              <p>
-                A Antecipa nasceu da necessidade de desburocratizar o setor financeiro para o mercado imobiliário. Sabemos que o fluxo de caixa é vital para a operação e crescimento, e as barreiras bancárias tradicionais muitas vezes impedem o progresso.
-              </p>
-              <p>
-                Nossa plataforma conecta diretamente os recebíveis de comissões e vendas imobiliárias a fontes de capital seguras, permitindo que o dinheiro chegue onde ele é necessário em questão de horas, não semanas.
-              </p>
-            </div>
-          </div>
-          <div className="bg-black text-white p-12 rounded-sm space-y-8">
-            <div className="space-y-4">
-              <p className="text-[10px] font-bold tracking-[0.4em] opacity-40">STATS</p>
-              <div className="grid grid-cols-2 gap-8">
-                <div>
-                  <p className="text-3xl font-light">+R$ 500M</p>
-                  <p className="text-[9px] uppercase tracking-widest opacity-40">Antecipados</p>
-                </div>
-                <div>
-                  <p className="text-3xl font-light">12.4k</p>
-                  <p className="text-[9px] uppercase tracking-widest opacity-40">Corretores</p>
-                </div>
-              </div>
-            </div>
-            <div className="h-px bg-white/20"></div>
-            <p className="text-xs leading-relaxed opacity-60 font-medium uppercase">
-              "Tecnologia e confiança são os pilares que nos permitem transformar o futuro financeiro do setor imobiliário brasileiro."
+        {/* Contact Form Section */}
+        <section className="border-t border-black/10 pt-16 grid grid-cols-1 md:grid-cols-5 gap-16">
+          <div className="md:col-span-2 space-y-6">
+            <span className="text-[9px] uppercase tracking-[0.4em] font-bold text-black/40 block">FALE CONOSCO</span>
+            <h2 className="text-4xl font-light uppercase tracking-tight leading-none">
+              Canal de <br/><span className="font-semibold">Atendimento</span>
+            </h2>
+            <p className="text-sm text-black/60 leading-relaxed font-medium uppercase text-justify">
+              Deseja fazer uma crítica, elogio, tirar dúvidas ou sugerir melhorias? Preencha o formulário e sua mensagem será encaminhada diretamente para nossa equipe de atendimento.
             </p>
+          </div>
+
+          <div className="md:col-span-3">
+            {submitted ? (
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="p-8 border border-neutral-200 rounded-sm bg-[#fafafa] flex flex-col items-center text-center space-y-6 h-full justify-center"
+              >
+                <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center">
+                  <CheckCircle2 size={32} />
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-xl font-semibold uppercase tracking-tight">Solicitação Enviada!</h3>
+                  <p className="text-xs text-black/60 max-w-sm leading-relaxed font-medium uppercase">
+                    Sua mensagem foi enviada com sucesso e encaminhada aos nossos especialistas para análise.
+                  </p>
+                </div>
+                <button
+                  onClick={handleReset}
+                  className="flex items-center gap-2 border border-black/10 px-6 py-3 text-[10px] uppercase font-bold tracking-[0.2em] hover:bg-black hover:text-white transition-all rounded-sm active:scale-95"
+                >
+                  <RotateCcw size={12} /> Enviar Nova Mensagem
+                </button>
+              </motion.div>
+            ) : (
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Nome */}
+                  <div className="space-y-2">
+                    <label className="text-[10px] uppercase tracking-widest font-bold text-black/50 block">Nome Completo</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Ex: Ana Silva"
+                      value={nome}
+                      onChange={(e) => setNome(e.target.value)}
+                      className="w-full border-b border-black/20 focus:border-black py-2.5 text-sm font-medium outline-none transition-colors placeholder:text-black/25 bg-transparent"
+                    />
+                  </div>
+
+                  {/* Telefone */}
+                  <div className="space-y-2">
+                    <label className="text-[10px] uppercase tracking-widest font-bold text-black/50 block">Telefone</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Ex: (11) 98765-4321"
+                      value={telefone}
+                      onChange={(e) => handleTelefoneChange(e.target.value)}
+                      className="w-full border-b border-black/20 focus:border-black py-2.5 text-sm font-medium outline-none transition-colors placeholder:text-black/25 bg-transparent"
+                    />
+                  </div>
+                </div>
+
+                {/* Tipo de Solicitação */}
+                <div className="space-y-2">
+                  <label className="text-[10px] uppercase tracking-widest font-bold text-black/50 block">Tipo da Solicitação</label>
+                  <select
+                    value={tipoSolicitacao}
+                    onChange={(e) => setTipoSolicitacao(e.target.value)}
+                    className="w-full border-b border-black/20 focus:border-black py-2.5 text-sm font-medium outline-none bg-transparent transition-colors cursor-pointer"
+                  >
+                    <option value="duvida">Dúvidas / Suporte</option>
+                    <option value="elogio">Elogio</option>
+                    <option value="critica">Crítica / Reclamação</option>
+                    <option value="sugestao">Sugestão de Melhorias</option>
+                    <option value="outros">Outros Assuntos</option>
+                  </select>
+                </div>
+
+                {/* Corpo do Texto */}
+                <div className="space-y-2">
+                  <label className="text-[10px] uppercase tracking-widest font-bold text-black/50 block">Corpo do Texto / Mensagem</label>
+                  <textarea
+                    required
+                    rows={4}
+                    placeholder="Escreva detalhadamente sua mensagem aqui..."
+                    value={corpoTexto}
+                    onChange={(e) => setCorpoTexto(e.target.value)}
+                    className="w-full border-b border-black/20 focus:border-black py-2.5 text-sm font-medium outline-none transition-colors placeholder:text-black/25 bg-transparent resize-none leading-relaxed"
+                  />
+                </div>
+
+                {/* Submit button */}
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full bg-black hover:bg-neutral-800 disabled:bg-neutral-300 text-white flex items-center justify-center gap-2.5 py-4 text-[10px] uppercase tracking-[0.2em] font-bold transition-all rounded-sm active:scale-95 disabled:scale-100 disabled:cursor-not-allowed"
+                >
+                  {loading ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                      <span>Enviando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Send size={12} />
+                      <span>Enviar Solicitação</span>
+                    </>
+                  )}
+                </button>
+              </form>
+            )}
           </div>
         </section>
       </main>
@@ -115,3 +247,4 @@ export default function InstitutionalPage({ onBack }: InstitutionalPageProps) {
     </div>
   );
 }
+
