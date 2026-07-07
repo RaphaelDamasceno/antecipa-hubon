@@ -1,44 +1,18 @@
 import { Receivable, UserData } from './sheetsService';
+import { apiCall } from './apiClient';
 
 export type UserAuth = UserData;
-
-/**
- * NOTA DE SEGURANÇA:
- * No Vercel/ambientes de hospedagem Frontend, as variáveis de ambiente prefixadas com VITE_ 
- * são injetadas no build e permanecem expostas no bundle JavaScript do navegador.
- * Para uma produção com segurança máxima, o ideal é criar uma Edge Function ou API Route
- * no servidor (ex: /api/bitrix-proxy) que faça o proxy seguro das chamadas, 
- * mantendo as chaves e tokens confidenciais estritamente protegidos no servidor.
- */
 
 const CATEGORY_ID = 89;
 export const PV_FIELD = 'UF_CRM_1758140731010';
 
+/**
+ * Busca deals existentes no Bitrix via backend proxy.
+ * @param pvIds - Lista de IDs de PV para buscar.
+ */
 export async function fetchExistingDeals(pvIds: string[]) {
-  const listUrl = import.meta.env.VITE_BITRIX_LIST_URL;
-  if (!listUrl) {
-    throw new Error("Configuração de integração Bitrix não encontrada. Contate o administrador.");
-  }
-
   try {
-    const response = await fetch(listUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        filter: {
-          "=CATEGORY_ID": CATEGORY_ID,
-          [PV_FIELD]: pvIds
-        },
-        select: ['ID', 'TITLE', 'COMMENTS', 'STAGE_ID', PV_FIELD, 'UF_CRM_1712601553', 'UF_CRM_1712601748']
-      })
-    });
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Bitrix API Error (${response.status}): ${errorText}`);
-    }
-    const data = await response.json();
-    return data.result || [];
+    return await apiCall<any[]>('/api/bitrix/deals', { pvIds });
   } catch (error) {
     console.error('Erro ao buscar deals existentes:', error);
     return [];
@@ -93,63 +67,10 @@ export const BITRIX_FIELDS = {
   FILE_ATTACHMENT: 'UF_CRM_1749578923'
 };
 
-export async function updateBitrixDealWithFile(dealId: string, base64File: string, fileName: string) {
-  const writeUrl = import.meta.env.VITE_BITRIX_WEBHOOK_WRITE_URL;
-  if (!writeUrl) {
-    throw new Error("Configuração de integração Bitrix não encontrada. Contate o administrador.");
-  }
-  const updateUrl = writeUrl.replace('crm.deal.add.json', 'crm.deal.update.json');
-  
-  try {
-    const response = await fetch(updateUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        id: dealId,
-        fields: {
-          [BITRIX_FIELDS.FILE_ATTACHMENT]: {
-            fileData: [fileName, base64File]
-          },
-          STAGE_ID: 'C89:EXECUTING'
-        }
-      })
-    });
-    const result = await response.json();
-    if (result.error) throw new Error(result.error_description || result.error);
-    return result;
-  } catch (error) {
-    console.error('Erro ao anexar arquivo no Bitrix:', error);
-    throw error;
-  }
-}
-
-export async function rejectBitrixDeal(dealId: string) {
-  const writeUrl = import.meta.env.VITE_BITRIX_WEBHOOK_WRITE_URL;
-  if (!writeUrl) {
-    throw new Error("Configuração de integração Bitrix não encontrada. Contate o administrador.");
-  }
-  const updateUrl = writeUrl.replace('crm.deal.add.json', 'crm.deal.update.json');
-  
-  try {
-    const response = await fetch(updateUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        id: dealId,
-        fields: {
-          STAGE_ID: 'C89:LOSE'
-        }
-      })
-    });
-    const result = await response.json();
-    if (result.error) throw new Error(result.error_description || result.error);
-    return result;
-  } catch (error) {
-    console.error('Erro ao recusar negócio no Bitrix:', error);
-    throw error;
-  }
-}
-
+/**
+ * Verifica se um recebível já possui solicitação registrada nos deals existentes.
+ * Compara por PV, valor e previsão para evitar duplicidades entre parcelas.
+ */
 export function isAlreadyRequested(receivable: Receivable, existingDeals: any[]) {
   const idSearch = String(receivable.id).trim();
   const valueSearch = receivable.valor.trim();
@@ -174,6 +95,10 @@ export function isAlreadyRequested(receivable: Receivable, existingDeals: any[])
   });
 }
 
+/**
+ * Cria um deal individual no Bitrix via backend proxy.
+ * O payload (título, comentários, campos) é montado no cliente e enviado ao servidor.
+ */
 export async function createBitrixDeal(receivable: Receivable, userInfo: UserAuth, collateralItems: Receivable[] = []) {
   const title = `Solicitação de Antecipação - PV ${receivable.id}`;
   
@@ -226,26 +151,13 @@ export async function createBitrixDeal(receivable: Receivable, userInfo: UserAut
     }
   };
 
-  const writeUrl = import.meta.env.VITE_BITRIX_WEBHOOK_WRITE_URL;
-  if (!writeUrl) {
-    throw new Error("Configuração de integração Bitrix não encontrada. Contate o administrador.");
-  }
-
-  try {
-    const response = await fetch(writeUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-
-    if (!response.ok) throw new Error('Falha ao enviar para o Bitrix');
-    return await response.json();
-  } catch (error) {
-    console.error('Erro no Bitrix Service:', error);
-    throw error;
-  }
+  return await apiCall<any>('/api/bitrix/create', { mode: 'single', payload });
 }
 
+/**
+ * Cria múltiplos deals no Bitrix via backend proxy.
+ * Agrupa recebíveis por PV, monta os payloads no cliente e envia todos ao servidor.
+ */
 export async function createMultipleBitrixDeals(receivables: Receivable[], userInfo: UserAuth) {
   const groupById: Record<string, Receivable[]> = {};
   receivables.forEach(r => {
@@ -253,12 +165,7 @@ export async function createMultipleBitrixDeals(receivables: Receivable[], userI
     groupById[r.id].push(r);
   });
 
-  const writeUrl = import.meta.env.VITE_BITRIX_WEBHOOK_WRITE_URL;
-  if (!writeUrl) {
-    throw new Error("Configuração de integração Bitrix não encontrada. Contate o administrador.");
-  }
-
-  const promises = Object.entries(groupById).map(async ([id, items]) => {
+  const payloads = Object.entries(groupById).map(([id, items]) => {
     const totalVal = items.reduce((acc, curr) => acc + curr.valorNumeric, 0);
     const title = `Solicitação de Antecipação Total - PV ${id}`;
     
@@ -283,7 +190,7 @@ export async function createMultipleBitrixDeals(receivables: Receivable[], userI
       comments += `----------------------------------------------\n`;
     });
 
-    const payload = {
+    return {
       fields: {
         TITLE: title,
         CATEGORY_ID: CATEGORY_ID,
@@ -293,32 +200,21 @@ export async function createMultipleBitrixDeals(receivables: Receivable[], userI
         CURRENCY_ID: 'BRL'
       }
     };
-
-    try {
-      const response = await fetch(writeUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      if (!response.ok) {
-        throw new Error(`Falha no Bitrix ao processar PV ${id}: status ${response.status}`);
-      }
-      return await response.json();
-    } catch (err) {
-      console.error(`Erro ao criar Deal do Bitrix para o PV ${id}:`, err);
-      throw err;
-    }
   });
 
-  const results = await Promise.allSettled(promises);
-  
-  const rejected = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected');
-  const fulfilled = results.filter((r): r is PromiseFulfilledResult<any> => r.status === 'fulfilled');
-
-  if (rejected.length > 0) {
-    throw new Error(`Falha ao registrar solicitações no Bitrix: ${rejected.length} de ${results.length} falharam.`);
-  }
-
-  return fulfilled.map(r => r.value);
+  return await apiCall<any>('/api/bitrix/create', { mode: 'multiple', payloads });
 }
 
+/**
+ * Anexa um arquivo a um deal existente no Bitrix via backend proxy.
+ */
+export async function updateBitrixDealWithFile(dealId: string, base64File: string, fileName: string) {
+  return await apiCall<any>('/api/bitrix/update', { dealId, action: 'attachFile', base64File, fileName });
+}
+
+/**
+ * Rejeita (move para LOSE) um deal no Bitrix via backend proxy.
+ */
+export async function rejectBitrixDeal(dealId: string) {
+  return await apiCall<any>('/api/bitrix/update', { dealId, action: 'reject' });
+}

@@ -22,28 +22,35 @@ export default function App() {
     return (localStorage.getItem('antecipa_theme') as 'light' | 'dark') || 'dark';
   });
 
-  const [isAccessAllowed, setIsAccessAllowed] = useState<boolean>(() => {
-    const envToken = import.meta.env.VITE_ACCESS_TOKEN;
-    
-    // Se a variável não estiver definida, o portão deve estar ABERTO
-    if (!envToken) {
+  const [isAccessAllowed, setIsAccessAllowed] = useState<boolean | null>(() => {
+    // Verifica sessionStorage primeiro para navegação dentro da mesma sessão
+    if (sessionStorage.getItem('portal_access_allowed') === 'true') {
       return true;
     }
+    return null; // Será resolvido pelo useEffect
+  });
+
+  useEffect(() => {
+    if (isAccessAllowed !== null) return; // Já resolvido
 
     const params = new URLSearchParams(window.location.search);
     const token = params.get('token') || params.get('ref') || params.get('src');
-    const referrer = document.referrer?.toLowerCase() || '';
-    
-    const hasValidToken = token === envToken;
-    const hasValidReferrer = referrer.includes('bitrix') || referrer.includes('crm') || referrer.includes('antecipabroker') || referrer.includes('meuapp') || referrer.includes('app-empresa');
-    const hasSessionAllowed = sessionStorage.getItem('portal_access_allowed') === 'true';
-    
-    if (hasValidToken || hasValidReferrer || hasSessionAllowed) {
-      sessionStorage.setItem('portal_access_allowed', 'true');
-      return true;
-    }
-    return false;
-  });
+    const referrer = document.referrer || '';
+
+    fetch('/api/access/validate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, referrer }),
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data.allowed) {
+          sessionStorage.setItem('portal_access_allowed', 'true');
+        }
+        setIsAccessAllowed(data.allowed);
+      })
+      .catch(() => setIsAccessAllowed(false));
+  }, [isAccessAllowed]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -76,7 +83,7 @@ export default function App() {
     }
   };
 
-  if (authLoading) {
+  if (authLoading || isAccessAllowed === null) {
     return (
       <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center">
         <Shield className="animate-pulse text-white/20" size={48} />
