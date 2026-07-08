@@ -5,7 +5,19 @@
  * contra a planilha de usuários configurada.
  */
 
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { IncomingMessage, ServerResponse } from 'node:http';
+
+interface VercelRequest extends IncomingMessage {
+  body: any;
+  query: Record<string, string | string[]>;
+}
+
+interface VercelResponse extends ServerResponse {
+  status(code: number): VercelResponse;
+  json(body: any): void;
+  setHeader(name: string, value: string): VercelResponse;
+  end(): void;
+}
 import { authenticateRequest, sendUnauthorized } from '../lib/auth';
 import { normalizeCPF, normalizeDate, normalizeName } from '../lib/utils';
 

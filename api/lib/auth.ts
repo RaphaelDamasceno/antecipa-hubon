@@ -4,7 +4,19 @@
  * Extrai e verifica o Bearer token do header Authorization.
  */
 
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { IncomingMessage, ServerResponse } from 'node:http';
+
+interface VercelRequest extends IncomingMessage {
+  body: any;
+  query: Record<string, string | string[]>;
+}
+
+interface VercelResponse extends ServerResponse {
+  status(code: number): VercelResponse;
+  json(body: any): void;
+  setHeader(name: string, value: string): VercelResponse;
+  end(): void;
+}
 import { verifyToken } from './firebaseAdmin';
 
 /**

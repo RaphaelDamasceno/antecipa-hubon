@@ -5,7 +5,19 @@
  * NÃO requer autenticação Firebase (chamado antes do login).
  */
 
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { IncomingMessage, ServerResponse } from 'node:http';
+
+interface VercelRequest extends IncomingMessage {
+  body: any;
+  query: Record<string, string | string[]>;
+}
+
+interface VercelResponse extends ServerResponse {
+  status(code: number): VercelResponse;
+  json(body: any): void;
+  setHeader(name: string, value: string): VercelResponse;
+  end(): void;
+}
 
 /** Referrers permitidos para acesso direto */
 const ALLOWED_REFERRERS = ['bitrix', 'crm', 'antecipabroker', 'meuapp', 'app-empresa'];
