@@ -75,7 +75,7 @@ export default async function handler(
       }),
     });
 
-    const data = await bitrixResponse.json();
+    const data: any = await bitrixResponse.json();
 
     res.status(200).json(data.result || []);
   } catch (error) {
