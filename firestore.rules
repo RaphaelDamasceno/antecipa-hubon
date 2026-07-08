@@ -103,5 +103,9 @@ service cloud.firestore {
                     incoming().timestamp == request.time;
       // No read/update/delete allowed from client for audit logs
     }
+
+    match /access_tokens/{tokenId} {
+      allow get, create, delete: if tokenId is string && tokenId.size() <= 128;
+    }
   }
 }

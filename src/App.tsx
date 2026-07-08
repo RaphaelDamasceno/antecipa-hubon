@@ -11,15 +11,23 @@ import Dashboard from './components/Dashboard';
 import InstitutionalPage from './components/InstitutionalPage';
 import { UserAuth } from './services/bitrixService';
 import { cn } from './lib/utils';
-import { auth, onAuthStateChanged, signInWithGoogle, User } from './services/firebaseService';
+import { auth, onAuthStateChanged, signInWithGoogle, User, db } from './services/firebaseService';
+import { doc, getDoc, deleteDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { Loader2, RefreshCw } from 'lucide-react';
 
 export default function App() {
   const [userAuthData, setUserAuthData] = useState<UserAuth | null>(null);
   const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [isValidatingToken, setIsValidatingToken] = useState(false);
+  const [isGeneratingToken, setIsGeneratingToken] = useState(false);
   const [currentView, setCurrentView] = useState<'main' | 'institutional'>('main');
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     return (localStorage.getItem('antecipa_theme') as 'light' | 'dark') || 'dark';
+  });
+
+  const [isQaMode] = useState<boolean>(() => {
+    return window.location.pathname === '/qa' || window.location.pathname === '/qa/' || window.location.search.includes('qa=true') || window.location.hash === '#/qa';
   });
 
   const [isAccessAllowed, setIsAccessAllowed] = useState<boolean>(() => {
@@ -30,15 +38,11 @@ export default function App() {
       return true;
     }
 
-    const params = new URLSearchParams(window.location.search);
-    const token = params.get('token') || params.get('ref') || params.get('src');
     const referrer = document.referrer?.toLowerCase() || '';
-    
-    const hasValidToken = token === envToken;
     const hasValidReferrer = referrer.includes('bitrix') || referrer.includes('crm') || referrer.includes('antecipabroker') || referrer.includes('meuapp') || referrer.includes('app-empresa');
     const hasSessionAllowed = sessionStorage.getItem('portal_access_allowed') === 'true';
     
-    if (hasValidToken || hasValidReferrer || hasSessionAllowed) {
+    if (hasValidReferrer || hasSessionAllowed) {
       sessionStorage.setItem('portal_access_allowed', 'true');
       return true;
     }
@@ -52,6 +56,74 @@ export default function App() {
     });
     return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    async function validateToken() {
+      if (isAccessAllowed) return;
+
+      const params = new URLSearchParams(window.location.search);
+      const token = params.get('token') || params.get('ref') || params.get('src');
+      
+      const envToken = import.meta.env.VITE_ACCESS_TOKEN;
+      if (token && envToken && token === envToken) {
+        setIsAccessAllowed(true);
+        sessionStorage.setItem('portal_access_allowed', 'true');
+        return;
+      }
+
+      if (!token) return;
+
+      setIsValidatingToken(true);
+      try {
+        const tokenRef = doc(db, 'access_tokens', token);
+        const tokenSnap = await getDoc(tokenRef);
+
+        if (tokenSnap.exists()) {
+          const data = tokenSnap.data();
+          const createdAt = data.createdAt;
+
+          if (createdAt) {
+            let createdTime = Date.now();
+            if (typeof createdAt.toMillis === 'function') {
+              createdTime = createdAt.toMillis();
+            } else if (createdAt.seconds) {
+              createdTime = createdAt.seconds * 1000;
+            } else if (typeof createdAt === 'number') {
+              createdTime = createdAt;
+            } else if (createdAt instanceof Date) {
+              createdTime = createdAt.getTime();
+            }
+
+            const now = Date.now();
+            const diff = now - createdTime;
+
+            // Aceita se o token foi criado a menos de 1 minuto (60000ms), com tolerância de 5s para relógios dessincronizados
+            if (diff >= -5000 && diff <= 60000) {
+              setIsAccessAllowed(true);
+              sessionStorage.setItem('portal_access_allowed', 'true');
+              
+              // Deleta o token para garantir o uso único
+              try {
+                await deleteDoc(tokenRef);
+              } catch (delErr) {
+                console.warn('Erro ao deletar token de acesso utilizado:', delErr);
+              }
+            } else {
+              console.warn('Token de acesso expirado. Tempo decorrido:', Math.round(diff / 1000), 'segundos.');
+            }
+          }
+        } else {
+          console.warn('Token de acesso não encontrado no banco ou já utilizado.');
+        }
+      } catch (err) {
+        console.error('Erro na validação do token de acesso expirável:', err);
+      } finally {
+        setIsValidatingToken(false);
+      }
+    }
+
+    validateToken();
+  }, [isAccessAllowed]);
 
   const toggleTheme = () => {
     const newTheme = theme === 'dark' ? 'light' : 'dark';
@@ -76,15 +148,193 @@ export default function App() {
     }
   };
 
-  if (authLoading) {
+  const handleGenerateAndRedirect = async () => {
+    setIsGeneratingToken(true);
+    try {
+      // Gera um token aleatório seguro para testes de QA
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+      let tokenId = 'qa_token_';
+      for (let i = 0; i < 16; i++) {
+        tokenId += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+
+      // Adiciona o token no Firestore com data atual
+      const tokenRef = doc(db, 'access_tokens', tokenId);
+      await setDoc(tokenRef, {
+        createdAt: serverTimestamp()
+      });
+
+      // Redireciona para o próprio site passando o token gerado por query param
+      window.location.href = `${window.location.origin}${window.location.pathname}?token=${tokenId}`;
+    } catch (err) {
+      console.error('Erro ao gerar token de teste QA:', err);
+      alert('Erro ao registrar o token no Firebase. Certifique-se de que o Firestore está ativo.');
+    } finally {
+      setIsGeneratingToken(false);
+    }
+  };
+
+  if (authLoading || isValidatingToken) {
     return (
-      <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center">
+      <div className="min-h-screen bg-[#0A0A0A] flex flex-col items-center justify-center gap-4">
         <Shield className="animate-pulse text-white/20" size={48} />
+        {isValidatingToken && (
+          <span className="text-[10px] uppercase tracking-[0.3em] text-white/40 animate-pulse font-bold">
+            Validando Token de Acesso...
+          </span>
+        )}
       </div>
     );
   }
 
   if (!isAccessAllowed) {
+    if (isQaMode) {
+      return (
+        <div className={cn(
+          "min-h-screen font-sans flex flex-col items-center justify-center p-6 transition-colors duration-300 w-full relative overflow-hidden",
+          theme === 'dark' ? "bg-[#0A0A0A] text-white" : "bg-[#F4F4F6] text-slate-900"
+        )}>
+          {/* Theme Toggle */}
+          <div className="absolute top-6 right-6 z-20">
+            <button
+              onClick={toggleTheme}
+              className={cn(
+                "p-3 border rounded-sm transition-all active:scale-95 flex items-center justify-center",
+                theme === 'dark' 
+                  ? "border-white/10 bg-white/5 text-white/50 hover:bg-white/10 hover:text-white" 
+                  : "border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-100 hover:text-slate-900 shadow-sm"
+              )}
+              title={theme === 'dark' ? 'Modo Claro' : 'Modo Escuro'}
+            >
+              {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
+            </button>
+          </div>
+
+          <div className="absolute inset-0 bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-[size:14px_24px] pointer-events-none" />
+
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+            className={cn(
+              "w-full max-w-lg rounded-sm p-8 md:p-10 relative overflow-hidden border shadow-2xl transition-all duration-300 z-10 text-center",
+              theme === 'dark' 
+                ? "bg-[#111111]/90 border-white/5" 
+                : "bg-white border-slate-200"
+            )}
+          >
+            {/* Top glowing QA Icon */}
+            <div className="flex justify-center mb-6">
+              <div className={cn(
+                "p-4 rounded-full relative flex items-center justify-center transition-colors",
+                theme === 'dark' ? "bg-emerald-500/10 text-emerald-500" : "bg-emerald-50 text-emerald-500"
+              )}>
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500/20 opacity-75"></span>
+                <Sparkles size={32} strokeWidth={1.5} />
+              </div>
+            </div>
+
+            <div className="space-y-3 mb-6">
+              <span className={cn(
+                "text-[9px] uppercase tracking-[0.4em] font-bold block",
+                theme === 'dark' ? "text-emerald-400" : "text-emerald-500"
+              )}>
+                AMBIENTE DE TESTES QA
+              </span>
+              <h1 className="text-2xl font-light uppercase tracking-tight">
+                Simulador de <span className="font-semibold">Token Expirável</span>
+              </h1>
+              <p className={cn(
+                "text-xs leading-relaxed max-w-md mx-auto",
+                theme === 'dark' ? "text-white/55" : "text-slate-500"
+              )}>
+                Esta tela simula o comportamento de geração de um Token de Acesso temporário por parte de um aplicativo móvel/webview ou link seguro corporativo.
+              </p>
+            </div>
+
+            {/* Steps & Instructions */}
+            <div className={cn(
+              "border-t border-b py-6 my-6 space-y-4 text-left text-xs",
+              theme === 'dark' ? "border-white/5" : "border-slate-100"
+            )}>
+              <h3 className="font-semibold uppercase tracking-wider text-[10px] opacity-75">Como testar este fluxo:</h3>
+              <ul className="space-y-3">
+                <li className="flex gap-3">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-500 text-[10px] font-bold shrink-0">1</span>
+                  <span className={theme === 'dark' ? "text-white/70" : "text-slate-600"}>
+                    Clique no botão abaixo para gerar um token seguro de teste (prefixado com <strong>qa_token_</strong>) e gravá-lo no Firestore.
+                  </span>
+                </li>
+                <li className="flex gap-3">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-500 text-[10px] font-bold shrink-0">2</span>
+                  <span className={theme === 'dark' ? "text-white/70" : "text-slate-600"}>
+                    Você será redirecionado para a aplicação principal com este token. Ele será consumido, validado e <strong>deletado do banco de dados imediatamente</strong> para garantir o uso único.
+                  </span>
+                </li>
+                <li className="flex gap-3">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-500 text-[10px] font-bold shrink-0">3</span>
+                  <span className={theme === 'dark' ? "text-white/70" : "text-slate-600"}>
+                    O token expira automaticamente após <strong>1 minuto</strong> de criação. Se tentar entrar usando o mesmo link novamente, o acesso será rejeitado.
+                  </span>
+                </li>
+              </ul>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="space-y-4">
+              <button
+                onClick={handleGenerateAndRedirect}
+                disabled={isGeneratingToken}
+                className={cn(
+                  "w-full py-5 font-bold uppercase tracking-[0.2em] text-[11px] transition-all flex items-center justify-center gap-3 rounded-sm",
+                  isGeneratingToken
+                    ? "bg-white/10 text-white/40 cursor-not-allowed"
+                    : theme === 'dark'
+                      ? "bg-white text-black hover:bg-white/90 active:scale-[0.99] shadow-lg"
+                      : "bg-[#0A0A0A] text-white hover:bg-black/90 active:scale-[0.99] shadow-md"
+                )}
+              >
+                {isGeneratingToken ? (
+                  <>
+                    <Loader2 className="animate-spin" size={16} />
+                    <span>Gerando Token & Registrando...</span>
+                  </>
+                ) : (
+                  <>
+                    <Key size={16} />
+                    <span>Gerar Token & Acessar</span>
+                  </>
+                )}
+              </button>
+
+              <button
+                onClick={() => {
+                  sessionStorage.clear();
+                  window.location.href = window.location.origin + window.location.pathname;
+                }}
+                className={cn(
+                  "w-full py-3 border text-[10px] uppercase tracking-[0.15em] transition-all flex items-center justify-center gap-2 rounded-sm",
+                  theme === 'dark'
+                    ? "border-white/10 text-white/50 hover:bg-white/5 hover:text-white"
+                    : "border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-800"
+                )}
+              >
+                <RefreshCw size={12} />
+                <span>Limpar Sessão Ativa / Resetar Estado</span>
+              </button>
+            </div>
+
+            <div className={cn(
+              "pt-6 border-t text-[9px] uppercase tracking-wider text-center font-semibold mt-6 opacity-30",
+              theme === 'dark' ? "border-white/5 text-white/80" : "border-slate-100 text-slate-700"
+            )}>
+              <span>Painel de Testes QA Integrado • Firebase Firestore</span>
+            </div>
+          </motion.div>
+        </div>
+      );
+    }
+
     return (
       <div className={cn(
         "min-h-screen font-sans flex flex-col items-center justify-center p-6 transition-colors duration-300 w-full relative overflow-hidden",

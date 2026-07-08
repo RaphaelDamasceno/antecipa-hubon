@@ -57,6 +57,15 @@
         "timestamp": { "type": "string", "format": "date-time" }
       },
       "required": ["userId", "userEmail", "userName", "action", "timestamp"]
+    },
+    "AccessToken": {
+      "title": "Access Token",
+      "description": "Temporary, short-lived tokens for secure initial entry through url redirection.",
+      "type": "object",
+      "properties": {
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["createdAt"]
     }
   },
   "firestore": {
@@ -71,6 +80,10 @@
     "/access_logs/{logId}": {
       "schema": "AccessLog",
       "description": "Audit logs of user access"
+    },
+    "/access_tokens/{tokenId}": {
+      "schema": "AccessToken",
+      "description": "Temporary short-lived redirection access tokens"
     }
   }
 }
