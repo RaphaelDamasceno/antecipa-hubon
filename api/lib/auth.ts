@@ -5,7 +5,6 @@
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import admin from 'firebase-admin';
 import { verifyToken } from './firebaseAdmin';
 
 /**
@@ -13,9 +12,7 @@ import { verifyToken } from './firebaseAdmin';
  * @param req - Requisição do Vercel
  * @returns Token decodificado ou null se inválido/ausente
  */
-export async function authenticateRequest(
-  req: VercelRequest
-): Promise<admin.auth.DecodedIdToken | null> {
+export async function authenticateRequest(req: VercelRequest) {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {

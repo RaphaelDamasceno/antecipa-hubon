@@ -4,23 +4,24 @@
  * Utiliza variáveis de ambiente do servidor (sem prefixo VITE_).
  */
 
-import admin from 'firebase-admin';
+import { initializeApp, getApps } from 'firebase-admin/app';
+import { getAuth } from 'firebase-admin/auth';
 
-if (admin.apps.length === 0) {
-  admin.initializeApp({
+if (getApps().length === 0) {
+  initializeApp({
     projectId: process.env.FIREBASE_PROJECT_ID,
   });
 }
 
 /** Instância de autenticação do Firebase Admin */
-export const adminAuth = admin.auth();
+export const adminAuth = getAuth();
 
 /**
  * Verifica um token de ID do Firebase.
  * @param token - Token JWT do Firebase a ser verificado
  * @returns O token decodificado ou null em caso de erro
  */
-export async function verifyToken(token: string): Promise<admin.auth.DecodedIdToken | null> {
+export async function verifyToken(token: string) {
   try {
     const decodedToken = await adminAuth.verifyIdToken(token);
     return decodedToken;
